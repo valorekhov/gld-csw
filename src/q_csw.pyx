@@ -31,7 +31,7 @@ cdef double S(double u, double chi, double xi):
 
 	return a_plus_b_inv * (pow(u, a_plus_b) - 1) - a_minus_b_inv * (pow(1. - u, a_minus_b) - 1)
 
-def quantile(np.ndarray[DTYPE_t, ndim=1] p, double mu, double sigma, double chi, double xi):
+def quantile(np.ndarray[DTYPE_t, ndim=1] p, double mu = 0., double sigma = 1., double chi = 0., double xi = 0.6):
 	s_h = S(.5, chi, xi) 
 	d = sigma / (S(.75, chi, xi) - S(.25, chi, xi))
 	return np.array([mu + d * (S(x, chi, xi) - s_h) for x in p], dtype=DTYPE)
