@@ -3,3 +3,5 @@
 *.so
 *.o
 *.c
+*.pyc
+*-checkpoint.ipynb
