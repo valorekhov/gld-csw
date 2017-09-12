@@ -5,33 +5,43 @@ cimport numpy as np
 DTYPE = np.float64
 
 cdef double compute_alpha(double xi):
-	return 0.5 * (0.5 - xi) / sqrt(xi * (1. - xi))
+    return 0.5 * (0.5 - xi) / sqrt(xi * (1. - xi))
 
 cdef double compute_beta(double chi):
-	return 0.5 * chi / sqrt(1. - chi * chi)
+    return 0.5 * chi / sqrt(1. - chi * chi)
 
-cdef double S(double u, double chi, double xi):
-	if chi == 0 and xi == 0.5:
-		return [log(x) - log(1. - x) for x in u] #np.log(u) - np.log(1. - u)
-	
-	if chi != 0 and xi == 0.5 * (1 + chi):
-		alpha = compute_alpha(xi)
-		return [log(x) - (pow(1. - x, alpha) - 1.) / alpha for x in u]
-	
-	if chi != 0 and xi == 0.5 * (1. - chi):
-		beta = compute_beta(chi)
-		return [(pow(x, beta) - 1.) / beta - log(1. - x) for x in u]
-	
-	alpha = compute_alpha(xi)
-	beta = compute_beta(chi)
-	a_plus_b = alpha + beta
-	a_minus_b = alpha - beta
-	a_plus_b_inv = 1 / a_plus_b
-	a_minus_b_inv = 1 / a_minus_b
+cdef class CswArgs:
 
-	return a_plus_b_inv * (pow(u, a_plus_b) - 1) - a_minus_b_inv * (pow(1. - u, a_minus_b) - 1)
+    def __cinit__(self, double chi, double xi):
+        self.chi = chi
+        self.xi = xi
+        self.alpha = compute_alpha(xi)
+        self.beta = compute_beta(chi)
+        self.alpha_plus_beta = self.alpha + self.beta
+        self.alpha_minus_beta = self.alpha - self.beta
+        self.alpha_plus_beta_inv = 1 / self.alpha_plus_beta
+        self.alpha_minus_beta_inv = 1/ self.alpha_minus_beta
+
+
+cdef double compute_s(double u, CswArgs args):
+    chi = args.chi
+    xi = args.xi
+    alpha = args.alpha
+    beta = args.beta
+
+    if chi == 0 and xi == 0.5:
+        return [log(x) - log(1. - x) for x in u]
+
+    if chi != 0 and xi == 0.5 * (1 + chi):
+        return [log(x) - (pow(1. - x, alpha) - 1.) / alpha for x in u]
+
+    if chi != 0 and xi == 0.5 * (1. - chi):
+        return [(pow(x, beta) - 1.) / beta - log(1. - x) for x in u]
+
+    return args.alpha_plus_beta_inv * (pow(u, args.alpha_plus_beta) - 1) - args.alpha_minus_beta_inv * (pow(1. - u, args.alpha_minus_beta) - 1)
 
 def quantile(np.ndarray[DTYPE_t, ndim=1] p, double mu = 0., double sigma = 1., double chi = 0., double xi = 0.6):
-	s_h = S(.5, chi, xi) 
-	d = sigma / (S(.75, chi, xi) - S(.25, chi, xi))
-	return np.array([mu + d * (S(x, chi, xi) - s_h) for x in p], dtype=DTYPE)
+    args = CswArgs(chi, xi)
+    s_h = compute_s(.5, args)
+    d = sigma / (compute_s(.75, args) - compute_s(.25, args))
+    return np.array([mu + d * (compute_s(x, args) - s_h) for x in p], dtype=DTYPE)
